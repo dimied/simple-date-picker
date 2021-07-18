@@ -1,0 +1,45 @@
+<html>
+    <head>
+        <link rel="stylesheet" href="tinypicker.css">
+        <script src="simpleypicker.js"></script>
+        <script>
+            document.addEventListener("DOMContentLoaded", function (event) {
+                console.log("DOM fully loaded and parsed");
+                var options = {weekday: undefined, year: undefined, month: '2-digit', day: '2-digit'};
+                window.weekStartsAtMonday = true;
+                var myDays =['M', 'D', 'M', 'D', 'F', 'S', 'S'];
+        
+                var ed = new Date();
+                var year = ed.getFullYear();
+                ed.setFullYear(year+4);
+                var md = new Date();
+                md.setFullYear(year-4);
+        
+                new SimplePicker({
+                    firstBox: document.getElementById('from'),
+                    lastBox: document.getElementById('till'),
+                    days: myDays,
+                    allowPast: true,
+                    months: 5,
+                    local: 'de-DE',
+                    //startDate: md,
+                    //endDate: ed,
+                    localOpts: options,
+                    noAutoFocusLast: true,
+                    /**
+                     *
+                     * @param {Date} date
+                     * @returns {string}
+                     */
+                    customRenderer: function (date) {
+                        return date.getDate() + '.' + (date.getMonth()+1);
+                    }
+                }).init();
+            });
+        </script>
+    </head>
+    <body>
+        <input type="text" id="from" />
+        <input type="text" id="till" />
+    </body>
+</html>
