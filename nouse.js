@@ -139,3 +139,23 @@ getMonthsInfoForCalendar: function (passedInDate, monthsToShow, local) {
             h.ac(calendarWidget, monthDiv);
         });
     }
+
+    function handleCalendarState(shadowElement, date) {
+        if (shadowElement === firstBox) {
+            startDate = date;
+            endDate = startDate;
+            if (lastBox.nodeType && !settings.noAutoFocusLast) {
+                lastBox.value = ''; // If user reenters startDate, force reselect of enddate
+                lastBox.innerHTML = '';
+                lastBox.focus();
+            } else {
+                h.removeCalendar(calCN);
+                settings.success(startDate);
+            }
+        } else {
+            endDate = date;
+            h.removeCalendar(calCN);
+            shadowElement.classList.remove('err');
+            settings.success(startDate, endDate);
+        }
+    }

@@ -48,7 +48,7 @@
     margin: 15px 0 5px 0;
 }
 
-.inBtw {
+.spbtw {
     background-color: #bbddf5;
 }
 
@@ -67,7 +67,7 @@
     font-size: 12px;
 }
 
-.mnt {
+.spmonth {
     max-width: 210px;
     width: 210px;
     /* width: auto; */
@@ -113,41 +113,6 @@
     border:1px solid red;
     box-shadow: 0 0 10px red;
 }
-
-/**
-.rChev:before, .lChev:before {
-    border-style: solid;
-    border-width: 3px 3px 0 0;
-    content: "";
-    display: inline-block;
-    height: 7px;
-    width: 7px;
-    cursor: pointer;
-}
-
-.rChev:before {
-    transform: rotate(45deg);
-}
-
-.lChev:before {
-    transform: rotate(-135deg);
-}
-
-.rChev, .lChev {
-    position: absolute;
-    top: 18px;
-}
-
-.rChev {
-    right: 25px;
-}
-
-.lChev {
-    left: 20px;
-}
-
-NEW
-*/
 
 .spnext:before, .spprev:before {
     border-style: solid;

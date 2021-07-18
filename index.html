@@ -1,6 +1,6 @@
 <html>
     <head>
-        <link rel="stylesheet" href="tinypicker.css">
+        <link rel="stylesheet" href="simplepicker.css">
         <script src="simpleypicker.js"></script>
         <script>
             document.addEventListener("DOMContentLoaded", function (event) {
@@ -26,14 +26,13 @@
                     //endDate: ed,
                     localOpts: options,
                     noAutoFocusLast: true,
-                    /**
-                     *
-                     * @param {Date} date
-                     * @returns {string}
-                     */
+                    startsAtMonday: true,
                     customRenderer: function (date) {
                         return date.getDate() + '.' + (date.getMonth()+1);
-                    }
+                    },
+                    monthHeaderRenderer: function(month) {
+                        return month.name;
+                    },
                 }).init();
             });
         </script>

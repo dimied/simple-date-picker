@@ -27,6 +27,9 @@ if (!window.hasOwnProperty('__SimplePickerHelper')) {
         rcls: function (el, className) {
             el.classList.remove(className);
         },
+        hcls: function(el, className) {
+            return el.classList.contains(className);
+        },
         febc: function (className) {
             return this.ebc(className)[0];
         },
@@ -58,7 +61,7 @@ if (!window.hasOwnProperty('__SimplePickerHelper')) {
             return Math.ceil((date.getDate() - 1 - date.getDay()) / 7);
         },
 
-        getDays: function (passedInDate, date, i, local) {
+        getDays: function (passedInDate, date, i, local,startsAtMonday) {
             var month = {
                 name: date.toLocaleString(local, { month: 'long' }),
                 year: date.getFullYear(),
@@ -66,7 +69,6 @@ if (!window.hasOwnProperty('__SimplePickerHelper')) {
                 weeks: []
             };
             var newDate = new Date(passedInDate.getFullYear(), passedInDate.getMonth() + i, 1).getMonth();
-            var startsAtMonday = window.hasOwnProperty('weekStartsAtMonday');
 
             while (date.getMonth() === newDate) {
                 var week = this.getNumberOfWeeks(this.d(date), startsAtMonday),
@@ -91,21 +93,21 @@ if (!window.hasOwnProperty('__SimplePickerHelper')) {
         },
         addMon: function (date, change) {
             var r = new Date(date.getTime());
+            function s(m, y) {
+                r.setMonth(m);
+                y !== 0 && r.setFullYear(r.getFullYear() + y);
+            }
             if (change === 0) {
                 return r;
             }
             var m = r.getMonth() + change;
-            console.log('Add mon', r, change, m);
             if (m === 12) {
-                r.setFullYear(date.getFullYear() + 1)
-                r.setMonth(0);
+                s(0, 1);
             } else if (m < 0) {
-                r.setFullYear(date.getFullYear() - 1)
-                r.setMonth(11);
+                s(11, -1);
             } else {
-                r.setMonth(m);
+                s(m, 0);
             }
-            console.log('Next', r);
             return r;
         },
 
@@ -123,6 +125,7 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
         initialDateSet = true,
         settings = {
             noAutoFocusLast: !!options.noAutoFocusLast,
+            startsAtMonday: !!options.startsAtMonday,
             local: options.local || 'en-US',
             localOpts: options.localOpts || {},
             allowPast: !!options.allowPast,
@@ -131,6 +134,9 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
             success: options.success || function () {
             },
             err: options.err || function () {
+            },
+            mhr: options.monthHeaderRenderer || function(m) {
+                return m.name + ' ' + m.year;
             }
         };
 
@@ -148,7 +154,7 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
         calCN = 'cal',
         div = 'div',
         selectedString = 'sel',
-        selectedRangeString = 'inBtw',
+        selectedRangeString = 'spbtw',
         startDate = options.startDate;
 
     startDate = firstBox.value === ''
@@ -160,7 +166,7 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
     var currentMonths = [];
 
     function sd(dt, d) {
-        console.log('SET DATE:', dt, d);
+        // console.log('SET DATE:', dt, d);
         if (dt === 'startdate') {
             startDate = d;
         } else if (dt === 'enddate') {
@@ -168,8 +174,9 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
         }
     }
 
-    function elemWithClass(type, className) {
-        var el = document.createElement(type);
+    function elemWithClass(t, className) {
+        var el = document.createElement(t);
+        className = className || '';
         el.className = className + ' ' + overrideClass;
         return el;
     }
@@ -216,6 +223,22 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
         });
     }
 
+    
+    
+    function isd(d) {
+        return (d instanceof Date);
+    }
+
+    function isb(s,e,d) {
+        return isd(s) && isd(e) && isd(d) && 
+        s.getTime()<d.getTime() && d.getTime() < e.getTime();
+    }
+
+    function ed(d1, d2) {
+        return isd(d1) && isd(d2)
+            && d1.getDate() === d2.getDate()
+            && d1.getMonth() === d2.getMonth();
+    }
 
 
     function dateClicked(date, elem, clickedElem) {
@@ -235,27 +258,14 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
             sd(c, date);
             setDateInEl(date, clickedElem, false);
         }
-    }
-
-    function isd(d) {
-        return (d instanceof Date);
-    }
-    function ed(d1, d2) {
-        return isd(d1) && isd(d2)
-            && d1.getDate() === d2.getDate()
-            && d1.getMonth() === d2.getMonth();
-    }
+    }   
 
     function createMonthElem(month, clickedElem) {
         var w, e, e2, i, j, dayHeader, weeks,
-            el = document.createElement('div'),
-            monthDiv = elemWithClass(div, 'mnt'),
+            monthDiv = elemWithClass(div, 'spmonth'),
             monthHeader = elemWithClass('p', 'hed');
 
-        el.style = "display:inline-block;"
-        el.className = 'month';
-
-        monthHeader.innerHTML = month.name;// + ' ' + month.year;
+        monthHeader.innerHTML = settings.mhr(month);
 
         dayHeader = document.createElement('div');
 
@@ -282,12 +292,14 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
                         var wd = w[j].date;
                         e2.innerHTML = wd.getDate();
 
-                        if (startDate && ed(startDate, wd)) {
+                        if (ed(startDate, wd)) {
                             //console.log('ADD-START');
                             h.acls(e2, 'startdate');
-                        } else if (endDate && ed(endDate, wd)) {
+                        } else if (ed(endDate, wd)) {
                             h.acls(e2, 'enddate');
                             //console.log('ADD-END');
+                        } else if(isb(startDate, endDate, wd)) {
+                            h.acls(e2, 'spbtw');
                         }
 
                         e2.setAttribute('time', wd.getTime());
@@ -335,11 +347,12 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
             w = elemWithClass(div, 'wrapper');
 
         currentMonths = [];
+
         for (var mi = 0; mi < settings.months; mi++) {
             var md = h.addMon(newStartDate, mi);
             md.setDate(1);
 
-            month = h.getDays(md, md, 0, local);
+            month = h.getDays(md, md, 0, local, settings.startsAtMonday);
 
             currentMonths.push(month);
 
@@ -362,22 +375,17 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
 
     function getNav() {
         var navWrapper = elemWithClass(div, 'nav');
-        function anw(s) {
+        function a(s) {
             h.ac(navWrapper, elemWithClass('span', s));
         }
-        anw('spnext');
-        anw('spprev');
+        a('spnext');
+        a('spprev');
 
         ael(navWrapper, 'click', function (e) {
-            var monthChange = e.target.classList.contains('spnext') ? 1 : -1;
-            console.log('NC:', monthChange, e.target);
-            // console.log('CM:', currentMonths);
+            var cm, nd, monthChange = h.hcls(e.target,'spnext') ? 1 : -1;
             if (currentMonths.length > 0) {
-                var cm = currentMonths[0];
-                var d = new Date(cm.year, cm.num, 1);
-
-                var nd = h.addMon(d, monthChange);
-                // console.log('FD:', d, nd);
+                cm = currentMonths[0];
+                nd = h.addMon(new Date(cm.year, cm.num, 1), monthChange);
                 renderCal(nd, currentCal());
             }
         });
@@ -498,41 +506,16 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
         });
     }
 
-    function handleCalendarState(shadowElement, date) {
-        if (shadowElement === firstBox) {
-            startDate = date;
-            endDate = startDate;
-            if (lastBox.nodeType && !settings.noAutoFocusLast) {
-                lastBox.value = ''; // If user reenters startDate, force reselect of enddate
-                lastBox.innerHTML = '';
-                lastBox.focus();
-            } else {
-                h.removeCalendar(calCN);
-                settings.success(startDate);
-            }
-        } else {
-            endDate = date;
-            h.removeCalendar(calCN);
-            shadowElement.classList.remove('err');
-            settings.success(startDate, endDate);
-        }
-    }
+    function userInputedDateHandler(e) {
+        var val = e.value;
+        var i = val && h.d(val);
+        var id = i instanceof Date;
 
-
-    // Specific helpers for TinyPicker
-
-
-
-    function userInputedDateHandler(element) {
-        var val = element.value;
-        var userInputedDate = val && h.d(val);
-        var instanceOfDate = userInputedDate instanceof Date;
-
-        if (instanceOfDate || (instanceOfDate && !h.isDateTodayOrFuture(userInputedDate, startDate))) {
-            element.value = '';
+        if (id || (id && !h.isDateTodayOrFuture(i, startDate))) {
+            e.value = '';
             settings.err();
         }
-        h.isDateTodayOrFuture(userInputedDate, today) && setDateInEl(userInputedDate, element, false);
+        h.isDateTodayOrFuture(i, today) && setDateInEl(i, e, false);
     }
 
     // Init listeners to properly display calendar
