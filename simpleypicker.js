@@ -10,25 +10,22 @@ if (!window.hasOwnProperty('__SimplePickerHelper')) {
         ebc: function (styleClass) {
             return document.getElementsByClassName(styleClass);
         },
-        ce: function (t) {
-            return document.createElement(t);
-        },
         rc: function (e, c) {
-            if (e && this.f(e.removeChild)) {
+            if (e && c && this.f(e.removeChild)) {
                 e.removeChild(c);
             }
         },
         ac: function (parent, child) {
-            parent.appendChild(child);
+            parent && child && parent.appendChild(child);
         },
         acls: function (el, className) {
-            el.classList.add(className);
+            el && el.classList.add(className);
         },
         rcls: function (el, className) {
-            el.classList.remove(className);
+           el && el.classList.remove(className);
         },
         hcls: function (el, className) {
-            return el.classList.contains(className);
+            return el && el.classList.contains(className);
         },
         febc: function (className) {
             return this.ebc(className)[0];
@@ -37,17 +34,19 @@ if (!window.hasOwnProperty('__SimplePickerHelper')) {
             return e.getBoundingClientRect();
         },
         pc: function (calEl, el) {
-            var b = this.br(document.body),
+            if(calEl, el) {
+                var b = this.br(document.body),
                 e = this.br(el),
                 o = e.top - b.top;
 
             calEl.style.top = o + e.height + 15 + 'px';
             calEl.style.left = e.left + 'px';
+            }
         },
         t: function (d) {
             return d.getTime();
         },
-        isDateTodayOrFuture: function (currentDate, checkThisDate) {
+        isTodayOrFuture: function (currentDate, checkThisDate) {
             return currentDate && checkThisDate && this.t(currentDate) >= this.t(checkThisDate);
         },
         removeCalendar: function (className) {
@@ -128,7 +127,7 @@ function SimplePicker(options) {
             local: options.local || 'en-US',
             localOpts: options.localOpts || {},
             allowPast: !!options.allowPast,
-            months: window.innerWidth > 500 ? options.months || 2 : 1,
+            months: window.innerWidth > 520 ? options.months || 2 : 1,
             days: options.days || ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
             success: options.success || function () {
             },
@@ -143,27 +142,24 @@ function SimplePicker(options) {
         calCN = 'spcal',
         div = 'div',
         selectedString = 'sel',
-        selectedRangeString = 'spbtw',
+        rangeCN = 'spbtw',
         startDate = options.startDate,
+        endDate = options.endDate,
         currentMonths = [];
 
-    startDate = firstBox.value === ''
-        ? today
-        : h.d(startDate && startDate.setHours(0, 0, 0, 0) || '');
-    var endDate = options.endDate;
-    endDate = h.d(endDate && endDate.setHours(0, 0, 0, 0) || '');
+    if (startDate) {
+        startDate = h.d(startDate.setHours(0, 0, 0, 0) || '');
+    }
+    if (endDate) {
+        endDate = h.d(endDate.setHours(0, 0, 0, 0) || '');
+    }
 
     if (options.customRenderer) {
         settings.customRenderer = options.customRenderer;
     }
-    this.sl = function () {
-        for (var t in listeners) {
-            console.log('L:' + t, listeners[t].length);
-        }
-    }
 
-    setDateInEl(options.startDate, firstBox, initialDateSet);
-    setDateInEl(options.endDate, lastBox, initialDateSet);
+    dateInElem(options.startDate, firstBox, initialDateSet);
+    dateInElem(options.endDate, lastBox, initialDateSet);
 
     function sd(dt, d) {
         if (dt === 'startdate') {
@@ -249,7 +245,7 @@ function SimplePicker(options) {
             e && h.rcls(e, c);
             elem && h.acls(elem, c);
             sd(c, date);
-            setDateInEl(date, clickedElem, false);
+            dateInElem(date, clickedElem, false);
         }
     }
     function ta(e) {
@@ -295,6 +291,9 @@ function SimplePicker(options) {
                         } else if (isb(startDate, endDate, wd)) {
                             h.acls(e2, 'spbtw');
                         }
+                        if (ed(wd, today)) {
+                            h.acls(e2, 'sptoday');
+                        }
 
                         e2.setAttribute('time', wd.getTime());
 
@@ -311,19 +310,19 @@ function SimplePicker(options) {
                                     var i, day, days = h.ebc('day'),
                                         hoverTime = ta(e.target),
                                         startTime = h.t(startDate);
-                                    //console.log('MO:', el);
+                                    console.log('MO:', e.target);
 
                                     for (i = 0; i < days.length; i++) {
                                         day = days[i];
                                         var elTime = ta(day);
 
-                                        day.classList.remove(selectedString);
-                                        day.classList.remove(selectedRangeString);
+                                        h.rlcs(day, selectedString);
+                                        h.rlcs(day, rangeCN);
 
                                         if (inputClicked === lastBox &&
                                             elTime < hoverTime &&
                                             elTime > startTime) {
-                                            h.acls(day, selectedRangeString);
+                                            h.acls(day, rangeCN);
                                         } else if (hoverTime === elTime ||
                                             (elTime === startTime &&
                                                 inputClicked !== firstBox)) {
@@ -356,16 +355,12 @@ function SimplePicker(options) {
     function removeCal() {
         rel('all');
         var c = currentCal();
-        if (c) {
-            console.log('REM-CAL');
-            document.body.removeChild(c);
-        }
+        h.rc(document.body, c);
+        lastClickedIdx = null;
     };
 
     function dummyRM() {
-        return function () {
-            // console.log('RM: dummy');
-        };
+        return function () { };
     }
 
     var removeMonths = dummyRM();
@@ -443,7 +438,7 @@ function SimplePicker(options) {
         }
     }
 
-    function setDateInEl(date, el, initial) {
+    function dateInElem(date, el, initial) {
         var v;
         initial = initial || false;
         if (date instanceof Date && el instanceof HTMLElement) {
@@ -461,29 +456,33 @@ function SimplePicker(options) {
         }
     }
 
-    function showCalendar(element, newStartDate) {
+    var lastClickedIdx;
+
+    function showCalendar(element, idx, newStartDate) {
         if (!element) {
             return;
         }
-        if (lastClicked === element) {
+        if (lastClickedIdx === idx) {
             console.log('Same clicked');
             return;
         }
-        if(lastClicked && calVisible) {
-            calVisible = false;
-            removeCal();
-        }
-        lastClicked = element;
+
+        removeCal();
+
+        lastClickedIdx = idx;
 
         if (!newStartDate) {
-            newStartDate = (element === firstBox)
-                ? startDate
-                : new Date(endDate.getFullYear(), endDate.getMonth());
+            if (idx === 0) {
+                newStartDate = h.d(startDate);
+            } else {
+                newStartDate = h.d(endDate);
+                newStartDate = new Date(newStartDate.getFullYear(), newStartDate.getMonth());
+            }
         }
 
-        newStartDate = h.isDateTodayOrFuture(newStartDate, today) || settings.selectPast ? newStartDate : today;
+        newStartDate = h.isTodayOrFuture(newStartDate, today) || settings.allowPast ? newStartDate : today;
 
-        console.log('NSD:', newStartDate);
+        // console.log('NSD:', newStartDate);
 
         var cal = elemWithClass(div, calCN);
         currId = 'sc_' + cid;
@@ -492,85 +491,83 @@ function SimplePicker(options) {
 
         h.ac(cal, getNav());
 
-        //var w = 
         renderCal(newStartDate, cal, element);
 
         h.ac(document.body, cal);
 
         h.pc(cal, element);
-        calVisible = true;
+        function iso(e, oe) {
+            var br;
+            if (e && oe) {
+                br = oe.getBoundingClientRect();
+                console.log('ISO:', e, oe, br);
 
-        //TODO: Schliessen
+                return !(e.clientX >= br.x && e.clientX <= br.x + br.width
+                    && e.clientY >= br.y && e.clientY <= br.y + br.height);
+            }
+            return false;
+        }
+
         ['click', 'touchend'].forEach(function (event) {
             ael(document, event, function (e) {
-                var el = e.target;
-                var calendarEl = document.getElementById(currId);
-                if (!calendarEl) {
+                var br, outside, el = e.target;
+                var calEl = currentCal();
+                if (!calEl) {
                     return;
                 }
-                var br = calendarEl.getBoundingClientRect();
-                //console.log('Clicked', el, calendarEl.getBoundingClientRect());
+                br = calEl.getBoundingClientRect();
 
-                var p = el.parentElement;
-                var remove = true;
-                while (p && p !== document.body) {
-                    if (p === calendarEl) {
-                        remove = false;
+                outside = iso(e, calEl);
+                var outsideInput = true;
+                [firstBox, lastBox].forEach(function (el) {
+                    if (el) {
+                        outsideInput &&= iso(e, el);
                     }
-                    p = p.parentElement;
-                }
-                var outside = !(e.clientX >= br.x && e.clientX <= br.x + br.width
-                    && e.clientY >= br.y && e.clientY <= br.y + br.height);
+                });
 
-                console.log('AE:', outside, el !== document.activeElement);
+                console.log('AE:',
+                    outside,
+                    outsideInput,
+                    el !== document.activeElement,
+                    document.activeElement
+                );
 
-                if (el !== document.activeElement && outside) {
+                if ((el !== document.activeElement || outsideInput) && outside) {
                     console.log('Remove CAL 2', outside);
                     removeCal();
-                    removeCal = function () { };
-
                 }
-
-                /*
-                if (calendarEl && !calendarEl.contains(el) && el !== document.activeElement) {
-                    console.log('Remove CAL');
-                    document.removeChild(calendarEl);
-                    //h.removeCalendar(calendarClassName);
-                }
-                */
             }, 'doc');
         });
     }
 
-    function userInputedDateHandler(e) {
+    function onUserInput(e) {
         var val = e.value;
         var i = val && h.d(val);
         var id = i instanceof Date;
 
-        if (id || (id && !h.isDateTodayOrFuture(i, startDate))) {
+        if (id || (id && !h.isTodayOrFuture(i, startDate))) {
             e.value = '';
             settings.err();
         }
-        h.isDateTodayOrFuture(i, today) && setDateInEl(i, e, false);
+        h.isTodayOrFuture(i, today) && dateInElem(i, e, false);
     }
 
     // Init listeners to properly display calendar
     this.init = function () {
-        [firstBox, lastBox].forEach(function (element) {
+        [firstBox, lastBox].forEach(function (el, idx) {
             var fc = 'field', timer;
-            if (!element || !element.nodeType) {
+            if (!el || !el.nodeType) {
                 return;
             }
-            ael(element, 'focus', function (e) {
-                //!CiH && h.css(overrideClass, styleClass);
-                // CiH = true;
-                showCalendar(e.target);
+            console.log('Init:', idx);
+            ael(el, 'focus', function (e) {
+                showCalendar(e.target, idx);
             }, fc);
 
-            ael(element, 'keydown', function (e) {
+            ael(el, 'keydown', function (e) {
                 clearTimeout(timer);
                 timer = setTimeout(function () {
-                    userInputedDateHandler(e.target);
+                    onUserInput(e.target);
                 }, 1000);
             }, fc);
         });
