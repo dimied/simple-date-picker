@@ -22,7 +22,7 @@ if (!window.hasOwnProperty('__SimplePickerHelper')) {
             el && el.classList.add(className);
         },
         rcls: function (el, className) {
-           el && el.classList.remove(className);
+            el && el.classList.remove(className);
         },
         hcls: function (el, className) {
             return el && el.classList.contains(className);
@@ -34,13 +34,13 @@ if (!window.hasOwnProperty('__SimplePickerHelper')) {
             return e.getBoundingClientRect();
         },
         pc: function (calEl, el) {
-            if(calEl, el) {
+            if (calEl, el) {
                 var b = this.br(document.body),
-                e = this.br(el),
-                o = e.top - b.top;
+                    e = this.br(el),
+                    o = e.top - b.top;
 
-            calEl.style.top = o + e.height + 15 + 'px';
-            calEl.style.left = e.left + 'px';
+                calEl.style.top = o + e.height + 15 + 'px';
+                calEl.style.left = e.left + 'px';
             }
         },
         t: function (d) {
@@ -120,6 +120,7 @@ function SimplePicker(options) {
         firstBox = options.firstBox,
         lastBox = options.lastBox || {},
         listeners = {},
+        flisteners = [],
         initialDateSet = true,
         settings = {
             noAutoFocusLast: !!options.noAutoFocusLast,
@@ -184,12 +185,18 @@ function SimplePicker(options) {
             target.addEventListener(type, f);
             elemType = elemType || 'common';
 
-            if (h.f(target.removeEventListener) && elemType !== 'field') {
-                if (!listeners[elemType]) {
-                    listeners[elemType] = [];
+            if (h.f(target.removeEventListener)) {
+                if (elemType !== 'field') {
+                    if (!listeners[elemType]) {
+                        listeners[elemType] = [];
+                    }
+                    console.log('AEL', elemType);
+                    listeners[elemType].push(function () {
+                        target.removeEventListener(type, f);
+                    });
+                    return;
                 }
-                console.log('AEL', elemType);
-                listeners[elemType].push(function () {
+                flisteners.push(function () {
                     target.removeEventListener(type, f);
                 });
             }
@@ -210,6 +217,11 @@ function SimplePicker(options) {
                 l();
             });
             listeners[elemType] = [];
+        }
+        if (elemType === 'field') {
+            flisteners.forEach(function (l) {
+                l();
+            });
         }
         console.log('REL', elemType, nr);
     }
@@ -309,7 +321,8 @@ function SimplePicker(options) {
                                 return function (e) {
                                     var i, day, days = h.ebc('day'),
                                         hoverTime = ta(e.target),
-                                        startTime = h.t(startDate);
+                                        startTime = startDate ? h.t(startDate) : 0;
+
                                     console.log('MO:', e.target);
 
                                     for (i = 0; i < days.length; i++) {
@@ -559,7 +572,7 @@ function SimplePicker(options) {
             if (!el || !el.nodeType) {
                 return;
             }
-            console.log('Init:', idx);
+            // console.log('Init:', idx);
             ael(el, 'focus', function (e) {
                 showCalendar(e.target, idx);
             }, fc);
@@ -575,8 +588,7 @@ function SimplePicker(options) {
     };
 
     this.cleanup = function () {
-
         removeCal();
-        //h.nocss(styleClass);
+        rel('field');
     };
 }
