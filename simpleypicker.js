@@ -27,7 +27,7 @@ if (!window.hasOwnProperty('__SimplePickerHelper')) {
         rcls: function (el, className) {
             el.classList.remove(className);
         },
-        hcls: function(el, className) {
+        hcls: function (el, className) {
             return el.classList.contains(className);
         },
         febc: function (className) {
@@ -61,7 +61,7 @@ if (!window.hasOwnProperty('__SimplePickerHelper')) {
             return Math.ceil((date.getDate() - 1 - date.getDay()) / 7);
         },
 
-        getDays: function (passedInDate, date, i, local,startsAtMonday) {
+        getDays: function (passedInDate, date, i, local, startsAtMonday) {
             var month = {
                 name: date.toLocaleString(local, { month: 'long' }),
                 year: date.getFullYear(),
@@ -114,14 +114,13 @@ if (!window.hasOwnProperty('__SimplePickerHelper')) {
     };
 }
 
-function SimplePicker(options) { // eslint-disable-line no-unused-vars
+function SimplePicker(options) {
     var cid = (new Date()).getTime(),
         currId,
         h = window.__SimplePickerHelper,
-        CiH = false,
         firstBox = options.firstBox,
         lastBox = options.lastBox || {},
-        listeners = [],
+        listeners = {},
         initialDateSet = true,
         settings = {
             noAutoFocusLast: !!options.noAutoFocusLast,
@@ -135,27 +134,18 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
             },
             err: options.err || function () {
             },
-            mhr: options.monthHeaderRenderer || function(m) {
+            mhr: options.monthHeaderRenderer || function (m) {
                 return m.name + ' ' + m.year;
             }
-        };
-
-    if (options.customRenderer) {
-        settings.customRenderer = options.customRenderer;
-    }
-
-    setDateInEl(options.startDate, firstBox, initialDateSet);
-    setDateInEl(options.endDate, lastBox, initialDateSet);
-
-    // Settings and constants
-    var today = h.d(h.d().setHours(0, 0, 0, 0)),
+        },
+        today = h.d(h.d().setHours(0, 0, 0, 0)),
         overrideClass = options.overrideClass || '',
-        styleClass = overrideClass + '_tinypicker',
-        calCN = 'cal',
+        calCN = 'spcal',
         div = 'div',
         selectedString = 'sel',
         selectedRangeString = 'spbtw',
-        startDate = options.startDate;
+        startDate = options.startDate,
+        currentMonths = [];
 
     startDate = firstBox.value === ''
         ? today
@@ -163,10 +153,19 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
     var endDate = options.endDate;
     endDate = h.d(endDate && endDate.setHours(0, 0, 0, 0) || '');
 
-    var currentMonths = [];
+    if (options.customRenderer) {
+        settings.customRenderer = options.customRenderer;
+    }
+    this.sl = function () {
+        for (var t in listeners) {
+            console.log('L:' + t, listeners[t].length);
+        }
+    }
+
+    setDateInEl(options.startDate, firstBox, initialDateSet);
+    setDateInEl(options.endDate, lastBox, initialDateSet);
 
     function sd(dt, d) {
-        // console.log('SET DATE:', dt, d);
         if (dt === 'startdate') {
             startDate = d;
         } else if (dt === 'enddate') {
@@ -177,61 +176,55 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
     function elemWithClass(t, className) {
         var el = document.createElement(t);
         className = className || '';
-        el.className = className + ' ' + overrideClass;
+        className = (className + ' ' + overrideClass).trim();
+        if (className) {
+            el.className = className;
+        }
         return el;
     }
 
-    function ael(target, type, f) {
-        if (target) {
+    function ael(target, type, f, elemType) {
+        if (target && h.f(target.addEventListener)) {
             target.addEventListener(type, f);
-            listeners.push(function () {
-                if (h.f(target.removeEventListener)) {
-                    target.removeEventListener(type, f);
+            elemType = elemType || 'common';
+
+            if (h.f(target.removeEventListener) && elemType !== 'field') {
+                if (!listeners[elemType]) {
+                    listeners[elemType] = [];
                 }
-            });
+                console.log('AEL', elemType);
+                listeners[elemType].push(function () {
+                    target.removeEventListener(type, f);
+                });
+            }
         }
     }
 
-    function cleanupEventListeners() {
-        listeners.forEach(function (cleanupListener) {
-            if (h.f(cleanupListener)) {
-                cleanupListener();
+    function rel(elemType) {
+        var nr = 0;
+        if (elemType === 'all') {
+            for (elemType in listeners) {
+                rel(elemType);
             }
-        });
+            listeners = {};
+        }
+        if (listeners.hasOwnProperty(elemType) && listeners[elemType]) {
+            nr = listeners[elemType].length;
+            listeners[elemType].forEach(function (l) {
+                l();
+            });
+            listeners[elemType] = [];
+        }
+        console.log('REL', elemType, nr);
     }
 
-    function hoverRange(el, inputClicked) {
-        ael(el, 'mouseover', function (e) {
-            var i, day, days = document.getElementsByClassName('day'),
-                hoverTime = parseInt(e.target.getAttribute('time'), 10),
-                startTime = h.t(startDate);
-            console.log('MO:', el);
-
-            for (i = 0; i < days.length; i++) {
-                day = days[i];
-                var elTime = parseInt(day.getAttribute('time'), 10);
-
-                day.classList.remove(selectedString);
-                day.classList.remove(selectedRangeString);
-
-                if (inputClicked === lastBox && elTime < hoverTime && elTime > startTime) {
-                    h.acls(day, selectedRangeString);
-                } else if (hoverTime === elTime || (elTime === startTime && inputClicked !== firstBox)) {
-                    h.acls(day, selectedString);
-                }
-            }
-        });
-    }
-
-    
-    
     function isd(d) {
         return (d instanceof Date);
     }
 
-    function isb(s,e,d) {
-        return isd(s) && isd(e) && isd(d) && 
-        s.getTime()<d.getTime() && d.getTime() < e.getTime();
+    function isb(s, e, d) {
+        return isd(s) && isd(e) && isd(d) &&
+            s.getTime() < d.getTime() && d.getTime() < e.getTime();
     }
 
     function ed(d1, d2) {
@@ -254,39 +247,40 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
         if (c) {
             e = h.febc(c);
             e && h.rcls(e, c);
-            h.acls(elem, c);
+            elem && h.acls(elem, c);
             sd(c, date);
             setDateInEl(date, clickedElem, false);
         }
-    }   
+    }
+    function ta(e) {
+        return parseInt(e.getAttribute('time'), 10)
+    }
 
     function createMonthElem(month, clickedElem) {
         var w, e, e2, i, j, dayHeader, weeks,
             monthDiv = elemWithClass(div, 'spmonth'),
-            monthHeader = elemWithClass('p', 'hed');
+            monthHeader = elemWithClass('p', 'spmonthhead');
 
         monthHeader.innerHTML = settings.mhr(month);
 
-        dayHeader = document.createElement('div');
+        dayHeader = elemWithClass('div', '');
 
         for (i = 0; i < 7; i++) {
-            e = document.createElement('div');
-            e.className = 'dHd';
+            e = elemWithClass('div', 'spdayhead');
             e.innerHTML = settings.days[i];
             h.ac(dayHeader, e);
         }
 
-        weeks = document.createElement('div');
+        weeks = elemWithClass('div', '');
 
         for (i = 0; i < month.weeks.length; i++) {
             w = month.weeks[i];
             if (w) {
-                e = document.createElement('div');
+                e = elemWithClass('div', '');
                 e.style = "display:block;";
 
                 for (j = 0; j < 7; j++) {
-                    e2 = document.createElement('div');
-                    e2.className = 'day';
+                    e2 = elemWithClass('div', 'spday');
 
                     if (w[j] && w[j].date) {
                         var wd = w[j].date;
@@ -298,7 +292,7 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
                         } else if (ed(endDate, wd)) {
                             h.acls(e2, 'enddate');
                             //console.log('ADD-END');
-                        } else if(isb(startDate, endDate, wd)) {
+                        } else if (isb(startDate, endDate, wd)) {
                             h.acls(e2, 'spbtw');
                         }
 
@@ -309,9 +303,35 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
                                 e.preventDefault();
                                 dateClicked(dd, e.target, ce);
                             };
-                        }(wd, clickedElem)));
+                        }(wd, clickedElem)), 'day');
 
-                        hoverRange(e2, clickedElem);
+                        ael(e2, 'mouseover',
+                            (function (inputClicked) {
+                                return function (e) {
+                                    var i, day, days = h.ebc('day'),
+                                        hoverTime = ta(e.target),
+                                        startTime = h.t(startDate);
+                                    //console.log('MO:', el);
+
+                                    for (i = 0; i < days.length; i++) {
+                                        day = days[i];
+                                        var elTime = ta(day);
+
+                                        day.classList.remove(selectedString);
+                                        day.classList.remove(selectedRangeString);
+
+                                        if (inputClicked === lastBox &&
+                                            elTime < hoverTime &&
+                                            elTime > startTime) {
+                                            h.acls(day, selectedRangeString);
+                                        } else if (hoverTime === elTime ||
+                                            (elTime === startTime &&
+                                                inputClicked !== firstBox)) {
+                                            h.acls(day, selectedString);
+                                        }
+                                    }
+                                }
+                            }(clickedElem)), 'day');
                     }
                     h.ac(e, e2);
                 }
@@ -327,16 +347,24 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
         return monthDiv;
     }
 
-
-    var removeCal = function () { };
+    var lastClicked, calVisible = false;
 
     function currentCal() {
         return document.getElementById(currId);
     }
 
+    function removeCal() {
+        rel('all');
+        var c = currentCal();
+        if (c) {
+            console.log('REM-CAL');
+            document.body.removeChild(c);
+        }
+    };
+
     function dummyRM() {
         return function () {
-            console.log('RM: dummy');
+            // console.log('RM: dummy');
         };
     }
 
@@ -347,6 +375,8 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
             w = elemWithClass(div, 'wrapper');
 
         currentMonths = [];
+        listeners['day1'] = listeners['day'];
+        listeners['day'] = [];
 
         for (var mi = 0; mi < settings.months; mi++) {
             var md = h.addMon(newStartDate, mi);
@@ -365,6 +395,7 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
         h.ac(cal, w);
 
         removeMonths = function () {
+            rel('day1');
             cal.removeChild(w);
             console.log('Remove months');
             removeMonths = dummyRM();
@@ -374,7 +405,7 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
     }
 
     function getNav() {
-        var navWrapper = elemWithClass(div, 'nav');
+        var nc = 'spnav', navWrapper = elemWithClass(div, nc);
         function a(s) {
             h.ac(navWrapper, elemWithClass('span', s));
         }
@@ -382,21 +413,22 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
         a('spprev');
 
         ael(navWrapper, 'click', function (e) {
-            var cm, nd, monthChange = h.hcls(e.target,'spnext') ? 1 : -1;
+            var cm, nd, monthChange = h.hcls(e.target, 'spnext') ? 1 : -1;
             if (currentMonths.length > 0) {
                 cm = currentMonths[0];
                 nd = h.addMon(new Date(cm.year, cm.num, 1), monthChange);
                 renderCal(nd, currentCal());
             }
-        });
+        }, nc);
         return navWrapper;
     }
-    function setDates(shadowElement, date) {
-        if (shadowElement === firstBox) {
+
+    function setDates(elem, date) {
+        if (elem === firstBox) {
             startDate = date;
             endDate = startDate;
             if (lastBox.nodeType && !settings.noAutoFocusLast) {
-                lastBox.value = ''; // If user reenters startDate, force reselect of enddate
+                lastBox.value = '';
                 lastBox.innerHTML = '';
                 lastBox.focus();
             } else {
@@ -406,27 +438,26 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
         } else {
             endDate = date;
             removeCal();
-            shadowElement.classList.remove('err');
+            h.rcls(elem, 'err');
             settings.success(startDate, endDate);
         }
     }
 
-    function setDateInEl(date, shadowElement, initial) {
+    function setDateInEl(date, el, initial) {
         var v;
         initial = initial || false;
-        if (date instanceof Date && shadowElement instanceof HTMLElement) {
-            v = date.toLocaleDateString(settings.local, settings.localOpts);
+        if (date instanceof Date && el instanceof HTMLElement) {
+            v = h.f(settings.customRenderer)
+                ? settings.customRenderer(date)
+                : date.toLocaleDateString(settings.local, settings.localOpts);
 
-            if (h.f(settings.customRenderer)) {
-                v = settings.customRenderer(date);
-            }
-            shadowElement.value = v;
-            shadowElement.innerHTML = v;
+            el.value = v;
+            el.innerHTML = v;
 
-            shadowElement.setAttribute('date', h.t(date));
+            el.setAttribute('date', h.t(date));
         }
         if (!initial) {
-            setDates(shadowElement, date);
+            setDates(el, date);
         }
     }
 
@@ -434,6 +465,15 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
         if (!element) {
             return;
         }
+        if (lastClicked === element) {
+            console.log('Same clicked');
+            return;
+        }
+        if(lastClicked && calVisible) {
+            calVisible = false;
+            removeCal();
+        }
+        lastClicked = element;
 
         if (!newStartDate) {
             newStartDate = (element === firstBox)
@@ -455,14 +495,10 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
         //var w = 
         renderCal(newStartDate, cal, element);
 
-        removeCal = function () {
-            document.body.removeChild(cal);
-            console.log('Remove cal:', cal);
-        };
-
         h.ac(document.body, cal);
 
         h.pc(cal, element);
+        calVisible = true;
 
         //TODO: Schliessen
         ['click', 'touchend'].forEach(function (event) {
@@ -473,7 +509,7 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
                     return;
                 }
                 var br = calendarEl.getBoundingClientRect();
-                console.log('Clicked', el, calendarEl.getBoundingClientRect());
+                //console.log('Clicked', el, calendarEl.getBoundingClientRect());
 
                 var p = el.parentElement;
                 var remove = true;
@@ -502,7 +538,7 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
                     //h.removeCalendar(calendarClassName);
                 }
                 */
-            });
+            }, 'doc');
         });
     }
 
@@ -521,28 +557,29 @@ function SimplePicker(options) { // eslint-disable-line no-unused-vars
     // Init listeners to properly display calendar
     this.init = function () {
         [firstBox, lastBox].forEach(function (element) {
-            var timer;
+            var fc = 'field', timer;
             if (!element || !element.nodeType) {
                 return;
             }
             ael(element, 'focus', function (e) {
                 //!CiH && h.css(overrideClass, styleClass);
-                CiH = true;
+                // CiH = true;
                 showCalendar(e.target);
-            });
+            }, fc);
 
             ael(element, 'keydown', function (e) {
                 clearTimeout(timer);
                 timer = setTimeout(function () {
                     userInputedDateHandler(e.target);
                 }, 1000);
-            });
+            }, fc);
         });
+        return this;
     };
 
     this.cleanup = function () {
+
         removeCal();
         //h.nocss(styleClass);
-        cleanupEventListeners();
     };
 }

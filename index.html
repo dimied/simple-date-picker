@@ -3,10 +3,10 @@
         <link rel="stylesheet" href="simplepicker.css">
         <script src="simpleypicker.js"></script>
         <script>
+            var sp;
             document.addEventListener("DOMContentLoaded", function (event) {
                 console.log("DOM fully loaded and parsed");
                 var options = {weekday: undefined, year: undefined, month: '2-digit', day: '2-digit'};
-                window.weekStartsAtMonday = true;
                 var myDays =['M', 'D', 'M', 'D', 'F', 'S', 'S'];
         
                 var ed = new Date();
@@ -15,7 +15,7 @@
                 var md = new Date();
                 md.setFullYear(year-4);
         
-                new SimplePicker({
+                window.sp = new SimplePicker({
                     firstBox: document.getElementById('from'),
                     lastBox: document.getElementById('till'),
                     days: myDays,
