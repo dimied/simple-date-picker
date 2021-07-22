@@ -473,7 +473,7 @@ function SimplePicker(options) {
             return function () {
                 rel('day1');
                 cal.removeChild(c);
-                console.log('Remove months');
+                //console.log('Remove months');
             }
         }(w));
 
@@ -551,6 +551,9 @@ function SimplePicker(options) {
         }
 
         removeCal();
+
+        startDate = cd(0, startDate);
+        endDate = cd(1, endDate);
 
         lastClickedIdx = idx;
 
@@ -649,6 +652,8 @@ function SimplePicker(options) {
             ael(el, 'focus', function (e) {
                 showCalendar(e.target, idx);
             }, fc);
+            
+            //TODO: When user modifies date in input.
 
             /*
             ael(el, 'keydown', function (e) {
