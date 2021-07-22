@@ -49,28 +49,28 @@ if (!window.hasOwnProperty('__SimplePickerHelper')) {
         isTodayOrFuture: function (currentDate, checkThisDate) {
             return currentDate && checkThisDate && this.t(currentDate) >= this.t(checkThisDate);
         },
-        removeCalendar: function (className) {
-            var e = this.febc(className);
-            e && document.body.removeChild(e);
+        weekIndex: function (date, startsAtMonday) {
+            var d = date.getDate(), wd = date.getDay();
+            d = startsAtMonday ? (d - ((wd + 6) % 7)) : (d - 1 - wd);
+            return Math.ceil(d / 7);
         },
-        getNumberOfWeeks: function (date, startsAtMonday) {
-            if (startsAtMonday) {
-                return Math.ceil((date.getDate() - ((date.getDay() + 6) % 7)) / 7);
-            }
-            return Math.ceil((date.getDate() - 1 - date.getDay()) / 7);
+        mon: function(d) {
+            return d.getMonth();
         },
-
+        year: function(d) {
+            return d.getFullYear();
+        },
         getDays: function (passedInDate, date, i, local, startsAtMonday) {
             var month = {
                 name: date.toLocaleString(local, { month: 'long' }),
-                year: date.getFullYear(),
-                num: date.getMonth(),
+                year: this.year(date),
+                num: this.mon(date),
                 weeks: []
-            };
-            var newDate = new Date(passedInDate.getFullYear(), passedInDate.getMonth() + i, 1).getMonth();
+            },
+            newDate = this.mon(new Date(this.year(passedInDate), this.mon(passedInDate) + i, 1));
 
             while (date.getMonth() === newDate) {
-                var week = this.getNumberOfWeeks(this.d(date), startsAtMonday),
+                var week = this.weekIndex(this.d(date), startsAtMonday),
                     d, day = this.d(date);
 
                 if (!month.weeks[week]) {
@@ -91,15 +91,15 @@ if (!window.hasOwnProperty('__SimplePickerHelper')) {
             return month;
         },
         addMon: function (date, change) {
-            var r = new Date(date.getTime());
+            var tc=this,r = new Date(date.getTime());
             function s(m, y) {
                 r.setMonth(m);
-                y !== 0 && r.setFullYear(r.getFullYear() + y);
+                y !== 0 && r.setFullYear(tc.year(r) + y);
             }
             if (change === 0) {
                 return r;
             }
-            var m = r.getMonth() + change;
+            var m = this.mon(r) + change;
             if (m === 12) {
                 s(0, 1);
             } else if (m < 0) {
@@ -109,7 +109,9 @@ if (!window.hasOwnProperty('__SimplePickerHelper')) {
             }
             return r;
         },
-
+        zeroTime: function(d) {
+            return d.setHours(0,0,0,0);
+        },
     };
 }
 
@@ -138,34 +140,70 @@ function SimplePicker(options) {
                 return m.name + ' ' + m.year;
             }
         },
-        today = h.d(h.d().setHours(0, 0, 0, 0)),
+        today = h.d(h.zeroTime(h.d())),
         overrideClass = options.overrideClass || '',
         calCN = 'spcal',
-        div = 'div',
-        selectedString = 'sel',
+        SD = 'startdate',
+        ED = 'enddate',
         rangeCN = 'spbtw',
         startDate = options.startDate,
         endDate = options.endDate,
-        currentMonths = [];
+        currentMonths = [],
+        lastClickedIdx;
 
     if (startDate) {
-        startDate = h.d(startDate.setHours(0, 0, 0, 0) || '');
+        startDate = h.zeroTime(h.d(startDate));
     }
     if (endDate) {
-        endDate = h.d(endDate.setHours(0, 0, 0, 0) || '');
+        endDate = h.zeroTime(h.d(endDate));
     }
 
     if (options.customRenderer) {
         settings.customRenderer = options.customRenderer;
     }
 
-    dateInElem(options.startDate, firstBox, initialDateSet);
-    dateInElem(options.endDate, lastBox, initialDateSet);
+    dateInElem(startDate, 0, initialDateSet);
+    dateInElem(endDate, 1, initialDateSet);
+
+    function pd(e) {
+        if(e && e.value) {
+            var v = e.value;
+            v = v.split('.');
+
+            if(v.length>=2) {
+                var d = new Date();
+                d.setMonth(parseInt(v[1], 10)-1);
+                d.setDate(parseInt(v[0], 10));
+                if(v.length>=3) {
+                    //TODO: years   
+                }
+                h.zeroTime(d);
+                return d;
+            }
+        }
+        return '';        
+    }
+
+    function cd(idx, date) {
+        if(idx == 0 && firstBox instanceof HTMLElement) {
+            return pd(firstBox);
+        }
+        if(idx == 1 && lastBox instanceof HTMLElement) {
+            return pd(lastBox);
+        }
+        return date;
+    }
+
+    startDate = cd(0, startDate);
+    endDate = cd(1, endDate);
+
+    // console.log('INPUT:S:', startDate);
+    // console.log('INPUT:E:', endDate);
 
     function sd(dt, d) {
-        if (dt === 'startdate') {
+        if (dt === SD) {
             startDate = d;
-        } else if (dt === 'enddate') {
+        } else if (dt === ED) {
             endDate = d;
         }
     }
@@ -190,7 +228,7 @@ function SimplePicker(options) {
                     if (!listeners[elemType]) {
                         listeners[elemType] = [];
                     }
-                    console.log('AEL', elemType);
+                    //console.log('AEL', elemType);
                     listeners[elemType].push(function () {
                         target.removeEventListener(type, f);
                     });
@@ -223,7 +261,7 @@ function SimplePicker(options) {
                 l();
             });
         }
-        console.log('REL', elemType, nr);
+        // console.log('REL', elemType, nr);
     }
 
     function isd(d) {
@@ -242,36 +280,36 @@ function SimplePicker(options) {
     }
 
 
-    function dateClicked(date, elem, clickedElem) {
+    function dateClicked(date, elem, clickedElemIdx) {
         var e, c;
 
-        if (clickedElem === firstBox) {
+        if (clickedElemIdx === 0) {
             c = 'startdate';
-        } else if (clickedElem == lastBox) {
+        } else if (clickedElemIdx == 1) {
             c = 'enddate';
         }
-        console.log('Clicked:::', c, date, elem, clickedElem);
+        // console.log('Clicked:::', c, date, elem, clickedElemIdx);
 
         if (c) {
             e = h.febc(c);
             e && h.rcls(e, c);
             elem && h.acls(elem, c);
             sd(c, date);
-            dateInElem(date, clickedElem, false);
+            dateInElem(date, clickedElemIdx, false);
         }
     }
     function ta(e) {
-        return parseInt(e.getAttribute('time'), 10)
+        return parseInt(e.getAttribute('time'), 10);
     }
 
-    function createMonthElem(month, clickedElem) {
+    function createMonthElem(month, clickedElemIdx) {
         var w, e, e2, i, j, dayHeader, weeks,
-            monthDiv = elemWithClass(div, 'spmonth'),
+            monthDiv = elemWithClass('div', 'spmonth'),
             monthHeader = elemWithClass('p', 'spmonthhead');
 
         monthHeader.innerHTML = settings.mhr(month);
 
-        dayHeader = elemWithClass('div', '');
+        dayHeader = elemWithClass('div');
 
         for (i = 0; i < 7; i++) {
             e = elemWithClass('div', 'spdayhead');
@@ -279,13 +317,13 @@ function SimplePicker(options) {
             h.ac(dayHeader, e);
         }
 
-        weeks = elemWithClass('div', '');
+        weeks = elemWithClass('div', 'spweeks');
 
         for (i = 0; i < month.weeks.length; i++) {
             w = month.weeks[i];
+
             if (w) {
-                e = elemWithClass('div', '');
-                e.style = "display:block;";
+                e = elemWithClass('div', 'spweek');
 
                 for (j = 0; j < 7; j++) {
                     e2 = elemWithClass('div', 'spday');
@@ -295,11 +333,9 @@ function SimplePicker(options) {
                         e2.innerHTML = wd.getDate();
 
                         if (ed(startDate, wd)) {
-                            //console.log('ADD-START');
                             h.acls(e2, 'startdate');
                         } else if (ed(endDate, wd)) {
                             h.acls(e2, 'enddate');
-                            //console.log('ADD-END');
                         } else if (isb(startDate, endDate, wd)) {
                             h.acls(e2, 'spbtw');
                         }
@@ -309,47 +345,79 @@ function SimplePicker(options) {
 
                         e2.setAttribute('time', wd.getTime());
 
+                        //h.acls(e2, 'spday_'+wd.getMonth()+'_'+wd.getDate());
+
                         ael(e2, 'click', (function (dd, ce) {
                             return function (e) {
                                 e.preventDefault();
                                 dateClicked(dd, e.target, ce);
                             };
-                        }(wd, clickedElem)), 'day');
+                        }(wd, clickedElemIdx)), 'day');
 
                         ael(e2, 'mouseover',
-                            (function (inputClicked) {
+                            (function (inputClicked,h) {
                                 return function (e) {
-                                    var i, day, days = h.ebc('day'),
+                                    var i, elTime, day, days = h.ebc('spday'),
                                         hoverTime = ta(e.target),
                                         startTime = startDate ? h.t(startDate) : 0;
 
-                                    console.log('MO:', e.target);
+                                        /*
+                                    console.log('MO:', 
+                                    e.target, 
+                                    hoverTime, 
+                                    startTime,
+                                    inputClicked);
+                                    */
+                                    
 
                                     for (i = 0; i < days.length; i++) {
                                         day = days[i];
-                                        var elTime = ta(day);
+                                        if(day.hasAttribute('empty')) {
+                                            continue;
+                                        }
+                                        if(day.classList &&
+                                            day.classList.contains('spday_empty')) {
+                                            //console.log('Skip');
+                                            continue;
+                                        }
+                                        
+                                        elTime = ta(day);
 
-                                        h.rlcs(day, selectedString);
-                                        h.rlcs(day, rangeCN);
+                                        //console.log('EL:', elTime);
+                                        
 
-                                        if (inputClicked === lastBox &&
-                                            elTime < hoverTime &&
+                                        if (inputClicked === 1 &&
+                                            elTime <= hoverTime &&
                                             elTime > startTime) {
                                             h.acls(day, rangeCN);
-                                        } else if (hoverTime === elTime ||
+                                        } else {
+                                            h.rcls(day, rangeCN);
+                                        }
+                                        /*
+                                         else if (hoverTime === elTime ||
                                             (elTime === startTime &&
-                                                inputClicked !== firstBox)) {
+                                                inputClicked !== 0)) {
                                             h.acls(day, selectedString);
                                         }
+                                        */
                                     }
                                 }
-                            }(clickedElem)), 'day');
+                            }(clickedElemIdx,h)), 'day');
+                    } else {
+                        //h.acls(e2, 'spday_empty');
+                        e2.setAttribute('empty', '1');
+                        e2.innerHTML = "";
                     }
                     h.ac(e, e2);
                 }
                 h.ac(weeks, e);
             }
         }
+
+        var ef = elemWithClass('div', 'spweek_fill');
+            h.ac(weeks, ef);
+            ef = elemWithClass('div', 'spweek_fill');
+            h.ac(weeks, ef);
 
         h.ac(monthDiv, monthHeader);
         h.ac(monthDiv, dayHeader);
@@ -358,8 +426,6 @@ function SimplePicker(options) {
 
         return monthDiv;
     }
-
-    var lastClicked, calVisible = false;
 
     function currentCal() {
         return document.getElementById(currId);
@@ -372,17 +438,18 @@ function SimplePicker(options) {
         lastClickedIdx = null;
     };
 
-    function dummyRM() {
-        return function () { };
-    }
+    var monthControl = {
+        remove: function(){}
+    };
 
-    var removeMonths = dummyRM();
-
-    function renderCal(newStartDate, cal, clickedElem) {
+    function renderCal(newStartDate, cal, clickedElemIdx) {
         var local = settings.local,
-            w = elemWithClass(div, 'wrapper');
+            w = elemWithClass('div', 'wrapper');
 
         currentMonths = [];
+
+        clickedElemIdx = clickedElemIdx || lastClickedIdx;
+
         listeners['day1'] = listeners['day'];
         listeners['day'] = [];
 
@@ -394,26 +461,27 @@ function SimplePicker(options) {
 
             currentMonths.push(month);
 
-            var el = createMonthElem(month, clickedElem);
+            var el = createMonthElem(month, clickedElemIdx);
             h.ac(w, el);
         }
 
-        removeMonths();
+        monthControl.remove();
 
         h.ac(cal, w);
 
-        removeMonths = function () {
-            rel('day1');
-            cal.removeChild(w);
-            console.log('Remove months');
-            removeMonths = dummyRM();
-        };
+        monthControl.remove = (function(c){
+            return function () {
+                rel('day1');
+                cal.removeChild(c);
+                console.log('Remove months');
+            }
+        }(w));
 
         return w;
     }
 
     function getNav() {
-        var nc = 'spnav', navWrapper = elemWithClass(div, nc);
+        var nc = 'spnav', navWrapper = elemWithClass('div', nc);
         function a(s) {
             h.ac(navWrapper, elemWithClass('span', s));
         }
@@ -431,45 +499,47 @@ function SimplePicker(options) {
         return navWrapper;
     }
 
-    function setDates(elem, date) {
-        if (elem === firstBox) {
+    function setDates(elemIdx, date) {
+        if (elemIdx === 0) {
             startDate = date;
-            endDate = startDate;
-            if (lastBox.nodeType && !settings.noAutoFocusLast) {
-                lastBox.value = '';
-                lastBox.innerHTML = '';
-                lastBox.focus();
-            } else {
-                removeCal();
-                settings.success(startDate);
-            }
-        } else {
+            removeCal();
+            settings.success(startDate);
+        } else if (elemIdx === 1) {
             endDate = date;
             removeCal();
-            h.rcls(elem, 'err');
             settings.success(startDate, endDate);
         }
     }
 
-    function dateInElem(date, el, initial) {
+    function sdi(idx, v, date) {
+        var el;
+        if(idx === 0) {
+            el = firstBox;
+        }else if(idx === 1) {
+            el = lastBox;
+        } else {
+            return;
+        }
+
+        el.value = v;
+        el.innerHTML = v;
+
+        el.setAttribute('date', h.t(date));
+    }
+
+    function dateInElem(date, elIdx, initial) {
         var v;
         initial = initial || false;
-        if (date instanceof Date && el instanceof HTMLElement) {
+        if (date instanceof Date) {
             v = h.f(settings.customRenderer)
                 ? settings.customRenderer(date)
                 : date.toLocaleDateString(settings.local, settings.localOpts);
-
-            el.value = v;
-            el.innerHTML = v;
-
-            el.setAttribute('date', h.t(date));
+                sdi(elIdx, v, date);            
         }
         if (!initial) {
-            setDates(el, date);
+            setDates(elIdx, date);
         }
     }
-
-    var lastClickedIdx;
 
     function showCalendar(element, idx, newStartDate) {
         if (!element) {
@@ -497,23 +567,24 @@ function SimplePicker(options) {
 
         // console.log('NSD:', newStartDate);
 
-        var cal = elemWithClass(div, calCN);
+        var cal = elemWithClass('div', calCN);
         currId = 'sc_' + cid;
         cal.id = currId;
         cid++;
 
         h.ac(cal, getNav());
 
-        renderCal(newStartDate, cal, element);
+        renderCal(newStartDate, cal, lastClickedIdx);
 
         h.ac(document.body, cal);
 
         h.pc(cal, element);
+
         function iso(e, oe) {
             var br;
             if (e && oe) {
                 br = oe.getBoundingClientRect();
-                console.log('ISO:', e, oe, br);
+                //console.log('ISO:', e, oe, br);
 
                 return !(e.clientX >= br.x && e.clientX <= br.x + br.width
                     && e.clientY >= br.y && e.clientY <= br.y + br.height);
@@ -523,8 +594,8 @@ function SimplePicker(options) {
 
         ['click', 'touchend'].forEach(function (event) {
             ael(document, event, function (e) {
-                var br, outside, el = e.target;
-                var calEl = currentCal();
+                var br, outside, el = e.target, calEl = currentCal();
+
                 if (!calEl) {
                     return;
                 }
@@ -538,15 +609,17 @@ function SimplePicker(options) {
                     }
                 });
 
+                /*
                 console.log('AE:',
                     outside,
                     outsideInput,
                     el !== document.activeElement,
                     document.activeElement
                 );
+                */
 
                 if ((el !== document.activeElement || outsideInput) && outside) {
-                    console.log('Remove CAL 2', outside);
+                    //console.log('Remove CAL 2', outside);
                     removeCal();
                 }
             }, 'doc');
@@ -577,12 +650,14 @@ function SimplePicker(options) {
                 showCalendar(e.target, idx);
             }, fc);
 
+            /*
             ael(el, 'keydown', function (e) {
                 clearTimeout(timer);
                 timer = setTimeout(function () {
                     onUserInput(e.target);
                 }, 1000);
             }, fc);
+            */
         });
         return this;
     };
@@ -592,3 +667,5 @@ function SimplePicker(options) {
         rel('field');
     };
 }
+
+window.SimplePickerLoaded = true;
